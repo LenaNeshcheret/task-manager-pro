@@ -1,14 +1,17 @@
 server:
-  port: 8080
+  port: ${SERVER_PORT:8080}
 
 spring:
   application:
     name: task-manager-pro
-
+  profiles:
+    default: dev
+  config:
+    import: optional:file:.env[.properties]
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/task_manager}
-    username: ${DB_USER:task_manager}
-    password: ${DB_PASSWORD:task_manager}
+    url: ${DB_URL}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
   jpa:
     hibernate:
       ddl-auto: none

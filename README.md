@@ -2,16 +2,26 @@
 
 Spring Boot 3 (Java 17) skeleton for a production-ready Task Manager project.
 
-## Run (requires PostgreSQL)
+## Run (default profile: dev, requires PostgreSQL)
 1) Start PostgreSQL (later you'll add docker-compose; for now you can run locally)
-2) Configure env vars (optional)
-- DB_URL (default: jdbc:postgresql://localhost:5432/task_manager)
-- DB_USER (default: task_manager)
-- DB_PASSWORD (default: task_manager)
+2) Copy env template:
+```bash
+cp .env.example .env
+```
 
 3) Run:
 ```bash
 mvn spring-boot:run
+```
+
+## Profiles
+- `dev` (default): uses shared PostgreSQL settings from `application.yml` and `.env`
+- `prod`: same shared PostgreSQL settings, with SQL formatting disabled
+- `test`: same shared PostgreSQL settings, overrides only credentials to `test` / `test` (auto-used for `mvn test`)
+
+Run with `prod` profile:
+```bash
+mvn spring-boot:run -Dspring-boot.run.profiles=prod
 ```
 
 ## Endpoints
@@ -58,7 +68,7 @@ Planned improvements and production-ready features that will be implemented next
 ### Observability & Ops
 - [ ] Structured logging + request correlation IDs
 - [ ] Metrics (Actuator) and readiness/liveness checks
-- [ ] Profiles: dev / test / prod + externalized config
+- [x] Profiles: dev / test / prod + externalized config
 
 ### Testing & Quality
 - [ ] Unit tests for services (JUnit + Mockito)
