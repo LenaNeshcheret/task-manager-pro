@@ -3,15 +3,24 @@
 Spring Boot 3 (Java 17) skeleton for a production-ready Task Manager project.
 
 ## Run (default profile: dev, requires PostgreSQL)
-1) Start PostgreSQL (later you'll add docker-compose; for now you can run locally)
-2) Copy env template:
+1) Copy env template:
 ```bash
 cp .env.example .env
 ```
 
-3) Run:
+2) Start PostgreSQL container:
+```bash
+docker compose up -d postgres
+```
+
+3) Run app:
 ```bash
 mvn spring-boot:run
+```
+
+4) Stop PostgreSQL when done:
+```bash
+docker compose down
 ```
 
 ## Profiles
