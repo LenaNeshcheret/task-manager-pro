@@ -1,26 +1,37 @@
 # task-manager-pro
 
-Spring Boot 3 (Java 17) skeleton for a production-ready Task Manager project.
+Spring Boot 3 (Java 21) skeleton for a production-ready Task Manager project.
 
-## Run (default profile: dev, requires PostgreSQL)
+## Run with Docker (app + PostgreSQL)
 1) Copy env template:
 ```bash
 cp .env.example .env
 ```
 
-2) Start PostgreSQL container:
+2) Build and start all services:
+```bash
+docker compose up -d --build
+```
+
+3) Open:
+```text
+http://localhost:8080/swagger-ui.html
+```
+
+4) Stop all containers:
+```bash
+docker compose down
+```
+
+## Run app locally (optional)
+1) Start only PostgreSQL:
 ```bash
 docker compose up -d postgres
 ```
 
-3) Run app:
+2) Run app with Maven:
 ```bash
 mvn spring-boot:run
-```
-
-4) Stop PostgreSQL when done:
-```bash
-docker compose down
 ```
 
 ## Profiles
