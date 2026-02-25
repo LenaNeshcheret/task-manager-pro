@@ -11,8 +11,8 @@ from pathlib import Path
 
 REPO = os.environ.get("REPO", "")
 ISSUE_FILE = os.environ.get("ISSUE_FILE", "issue-import/pending/issues.md")
-# Increase if your repo has many issues and you need to search farther back
 ISSUE_LIST_LIMIT = int(os.environ.get("ISSUE_LIST_LIMIT", "1000"))
+AUTO_CREATE_LABELS = os.environ.get("AUTO_CREATE_LABELS", "true").lower() in ("1", "true", "yes", "on")
 
 
 def sh(cmd: list[str], check: bool = True) -> subprocess.CompletedProcess:
@@ -21,37 +21,19 @@ def sh(cmd: list[str], check: bool = True) -> subprocess.CompletedProcess:
 
 
 def normalize_title(title: str) -> str:
-    # Title-only normalization for stable IDs across whitespace/case differences
     t = re.sub(r"\s+", " ", title.strip())
     return t.lower()
 
 
 def make_importer_id_from_title(title: str) -> str:
-    base = normalize_title(title)
-    return hashlib.sha256(base.encode("utf-8")).hexdigest()[:12]
+    return hashlib.sha256(normalize_title(title).encode("utf-8")).hexdigest()[:12]
 
 
 def parse_issue_blocks(text: str):
-    """
-    Single file format:
-      ## Issue: Title A
-      Labels: bug, ui              (optional)
-      Assignees: alice, bob        (optional)
-
-      ## Description
-      ...
-      ## Acceptance Criteria
-      - [ ] ...
-
-      ---
-      ## Issue: Title B
-      ...
-    """
     blocks = [b.strip() for b in re.split(r"\n---\n", text.strip()) if b.strip()]
     parsed = []
 
     for idx, block in enumerate(blocks, start=1):
-        # Required title
         m = re.search(r"^##\s*Issue:\s*(.+)$", block, re.MULTILINE)
         if not m:
             print(f"[Block {idx}] Skipped: missing '## Issue: ...'")
@@ -59,7 +41,6 @@ def parse_issue_blocks(text: str):
 
         title = m.group(1).strip()
 
-        # Optional metadata
         labels_match = re.search(r"^Labels:\s*(.+)$", block, re.MULTILINE | re.IGNORECASE)
         assignees_match = re.search(r"^Assignees:\s*(.+)$", block, re.MULTILINE | re.IGNORECASE)
 
@@ -69,20 +50,17 @@ def parse_issue_blocks(text: str):
         assignees = [x.strip() for x in assignees_match.group(1).split(",")] if assignees_match else []
         assignees = [x for x in assignees if x]
 
-        # Body = remove title/meta lines
         body = re.sub(r"^##\s*Issue:\s*.+$\n?", "", block, flags=re.MULTILINE)
         body = re.sub(r"^Labels:\s*.+$\n?", "", body, flags=re.MULTILINE | re.IGNORECASE)
         body = re.sub(r"^Assignees:\s*.+$\n?", "", body, flags=re.MULTILINE | re.IGNORECASE)
         body = body.strip() or "_No description provided._"
-
-        importer_id = make_importer_id_from_title(title)
 
         parsed.append({
             "title": title,
             "labels": labels,
             "assignees": assignees,
             "body": body,
-            "importer_id": importer_id,
+            "importer_id": make_importer_id_from_title(title),
             "block_index": idx,
         })
 
@@ -90,32 +68,23 @@ def parse_issue_blocks(text: str):
 
 
 def get_existing_importer_ids(repo: str) -> set[str]:
-    """
-    Reads existing issues (open + closed) and extracts importer markers:
-      <!-- importer-id: abc123 -->
-    """
-    cmd = [
+    proc = sh([
         "gh", "issue", "list",
         "--repo", repo,
         "--state", "all",
         "--limit", str(ISSUE_LIST_LIMIT),
         "--json", "number,title,body",
-    ]
-    proc = sh(cmd, check=False)
+    ], check=False)
+
     if proc.returncode != 0:
         print("Failed to list issues.")
         print(proc.stdout)
         print(proc.stderr)
         sys.exit(proc.returncode)
 
-    try:
-        issues = json.loads(proc.stdout or "[]")
-    except json.JSONDecodeError as e:
-        print("Failed to parse gh issue list JSON:", e)
-        print(proc.stdout)
-        sys.exit(1)
-
+    issues = json.loads(proc.stdout or "[]")
     found = set()
+
     for issue in issues:
         body = issue.get("body") or ""
         for match in re.finditer(r"<!--\s*importer-id:\s*([a-f0-9]{6,64})\s*-->", body, re.IGNORECASE):
@@ -125,10 +94,66 @@ def get_existing_importer_ids(repo: str) -> set[str]:
     return found
 
 
-def create_issue(repo: str, item: dict) -> None:
+def get_existing_labels(repo: str) -> set[str]:
+    proc = sh([
+        "gh", "label", "list",
+        "--repo", repo,
+        "--limit", "1000",
+        "--json", "name",
+    ], check=False)
+
+    if proc.returncode != 0:
+        print("Warning: failed to list labels; proceeding without label pre-check.")
+        print(proc.stdout)
+        print(proc.stderr)
+        return set()
+
+    try:
+        data = json.loads(proc.stdout or "[]")
+        return {item["name"] for item in data if "name" in item}
+    except Exception:
+        return set()
+
+
+def ensure_labels_exist(repo: str, labels: list[str], known_labels: set[str]) -> list[str]:
+    if not labels:
+        return []
+
+    valid = []
+
+    for label in labels:
+        if label in known_labels:
+            valid.append(label)
+            continue
+
+        if not AUTO_CREATE_LABELS:
+            print(f"Label not found, skipping label: {label}")
+            continue
+
+        print(f"Creating missing label: {label}")
+        proc = sh(["gh", "label", "create", label, "--repo", repo], check=False)
+
+        # If create failed because label already exists (race condition), still allow it
+        if proc.returncode != 0:
+            stderr = (proc.stderr or "").lower()
+            stdout = (proc.stdout or "").lower()
+            if "already exists" in stderr or "already exists" in stdout:
+                pass
+            else:
+                print(f"Warning: failed to create label '{label}', skipping label.")
+                print(proc.stdout)
+                print(proc.stderr)
+                continue
+
+        known_labels.add(label)
+        valid.append(label)
+
+    return valid
+
+
+def create_issue(repo: str, item: dict) -> bool:
     marker = f"<!-- importer-id: {item['importer_id']} -->"
     source_note = f"<!-- imported-from: {ISSUE_FILE} block {item['block_index']} -->"
-
     final_body = f"{item['body']}\n\n---\n{marker}\n{source_note}"
 
     with tempfile.NamedTemporaryFile("w", encoding="utf-8", delete=False) as tmp:
@@ -154,12 +179,12 @@ def create_issue(repo: str, item: dict) -> None:
             print(f"ERROR creating issue: {item['title']}")
             print(proc.stdout)
             print(proc.stderr)
-            # Continue to next block instead of hard fail
-            return
+            return False
 
         print(f"Created issue: {item['title']}")
         if proc.stdout.strip():
             print(proc.stdout.strip())
+        return True
     finally:
         try:
             os.remove(tmp_path)
@@ -189,9 +214,11 @@ def main():
         return
 
     existing_ids = get_existing_importer_ids(REPO)
+    known_labels = get_existing_labels(REPO)
 
     created = 0
     skipped = 0
+    failed = 0
 
     for item in items:
         iid = item["importer_id"]
@@ -202,11 +229,17 @@ def main():
             skipped += 1
             continue
 
-        create_issue(REPO, item)
-        existing_ids.add(iid)  # avoid duplicates within same file/run
-        created += 1
+        item = dict(item)
+        item["labels"] = ensure_labels_exist(REPO, item["labels"], known_labels)
 
-    print(f"Done. Created={created}, Skipped={skipped}, TotalParsed={len(items)}")
+        ok = create_issue(REPO, item)
+        if ok:
+            existing_ids.add(iid)  # avoid duplicates within same run
+            created += 1
+        else:
+            failed += 1
+
+    print(f"Done. Created={created}, Skipped={skipped}, Failed={failed}, TotalParsed={len(items)}")
 
 
 if __name__ == "__main__":
