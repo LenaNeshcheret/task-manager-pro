@@ -1,0 +1,27 @@
+name: Import issues from single Markdown file on doc branch
+
+on:
+  push:
+    branches:
+      - doc
+    # No paths filter => ANY file pushed to doc triggers workflow
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  import-issues:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Import issues from single file
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          ISSUE_FILE: issue-import/pending/issues.md
+        run: |
+          python3 .github/scripts/import_issues.py
