@@ -1,0 +1,10 @@
+package com.lenaneshcheret.taskmanager.repository;
+
+import com.lenaneshcheret.taskmanager.domain.Project;
+import java.util.List;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface ProjectRepository extends JpaRepository<Project, Long> {
+
+  List<Project> findAllByOwnerId(Long ownerId);
+}
