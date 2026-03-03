@@ -1,37 +1,18 @@
-## Issue: Login timeout on mobile Safari
-Labels: bug, mobile
+## Issue: Keycloak local setup (docker-compose) + realm import
+Labels: chore, infra, auth, user
 
 ## Description
-Users report that after signing in on iPhone Safari, the session expires within 30–60 seconds.
+Add Keycloak to local development so backend + UI can authenticate against a real IdP. Include a committed realm import to keep setup reproducible.
 
 ## Acceptance Criteria
-- [ ] Root cause identified
-- [ ] Session remains active for configured timeout
-- [ ] No regression on desktop browsers
-
----
-
-## Issue: Add dark mode toggle to header
-Labels: enhancement, ui
-
-## Description
-Add a theme toggle in the header and persist the user preference after refresh.
-
-## Acceptance Criteria
-- [ ] Toggle is visible in header
-- [ ] Theme switches correctly
-- [ ] Preference persists after reload
-- [ ] Contrast is acceptable in both modes
-
----
-
-## Issue: Export users list to CSV from admin panel
-Labels: enhancement, admin, reporting
-
-## Description
-Admins need an export action for the currently filtered users list.
-
-## Acceptance Criteria
-- [ ] Export respects active filters
-- [ ] CSV includes headers
-- [ ] Filename includes timestamp
+- [ ] `docker-compose.yml` includes a Keycloak service
+- [ ] Realm export file is committed (e.g. `infra/keycloak/realm-export.json`)
+- [ ] Realm contains:
+  - realm `task-manager`
+  - client `task-manager-api`
+  - roles `USER`, `ADMIN`
+  - at least 2 test users (e.g. `user1`, `user2`) for local dev
+- [ ] README documents how to:
+  - start Keycloak
+  - obtain a token (curl example)
+  - login using the UI (once added)
