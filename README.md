@@ -48,6 +48,7 @@ mvn spring-boot:run
   - Username: `admin` (or `KEYCLOAK_ADMIN` from `.env`)
   - Password: `admin` (or `KEYCLOAK_ADMIN_PASSWORD` from `.env`)
 - Backend JWT issuer env: `SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI`
+  - Default value in `.env.example`: `http://host.docker.internal:8081/realms/task-manager`
 
 ### Obtain an access token (curl)
 ```bash
@@ -83,7 +84,7 @@ Without a bearer token, `/api/v1/me` returns `401 Unauthorized`.
 
 ### Login from UI (once UI is added)
 1) Configure your frontend OIDC settings:
-   - Issuer: `http://localhost:8081/realms/task-manager`
+   - Issuer: `http://host.docker.internal:8081/realms/task-manager`
    - Client ID: `task-manager-api`
    - Flow: Authorization Code with PKCE (`S256`)
 2) Run the UI on `http://localhost:3000` or `http://localhost:5173` (both are preconfigured redirect URIs).

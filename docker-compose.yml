@@ -16,7 +16,9 @@ services:
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
       APP_SECURITY_OAUTH2_CLIENT_ID: ${APP_SECURITY_OAUTH2_CLIENT_ID}
-      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://keycloak:8080/realms/task-manager
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: ${SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "${SERVER_PORT}:${SERVER_PORT}"
 
@@ -42,7 +44,7 @@ services:
     image: quay.io/keycloak/keycloak:24.0
     container_name: task-manager-keycloak
     restart: unless-stopped
-    command: start-dev --import-realm
+    command: start-dev --import-realm --hostname=host.docker.internal --hostname-port=8081 --http-enabled=true --hostname-strict=false
     environment:
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
