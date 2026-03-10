@@ -16,9 +16,12 @@ public class MeController {
   @GetMapping("/me")
   public MeResponse me(JwtAuthenticationToken authentication) {
     Jwt jwt = authentication.getToken();
-    String email = jwt.getClaimAsString("email");
-    if (email == null || email.isBlank()) {
-      email = authentication.getName();
+    String identifier = jwt.getClaimAsString("email");
+    if (identifier == null || identifier.isBlank()) {
+      identifier = jwt.getClaimAsString("preferred_username");
+    }
+    if (identifier == null || identifier.isBlank()) {
+      identifier = authentication.getName();
     }
 
     Set<String> roles = authentication.getAuthorities().stream()
@@ -26,7 +29,7 @@ public class MeController {
         .filter(authority -> authority.startsWith("ROLE_"))
         .collect(TreeSet::new, TreeSet::add, TreeSet::addAll);
 
-    return new MeResponse(email, roles);
+    return new MeResponse(identifier, roles);
   }
 
   public record MeResponse(String email, Set<String> roles) {

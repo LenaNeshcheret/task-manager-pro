@@ -44,12 +44,21 @@ public class KeycloakJwtAuthenticationConverter implements Converter<Jwt, Abstra
         .map(SimpleGrantedAuthority::new)
         .forEach(authorities::add);
 
-    String principalName = jwt.getClaimAsString("email");
-    if (principalName == null || principalName.isBlank()) {
-      principalName = jwt.getSubject();
+    return new JwtAuthenticationToken(jwt, authorities, resolvePrincipalName(jwt));
+  }
+
+  private String resolvePrincipalName(Jwt jwt) {
+    String email = jwt.getClaimAsString("email");
+    if (email != null && !email.isBlank()) {
+      return email;
     }
 
-    return new JwtAuthenticationToken(jwt, authorities, principalName);
+    String preferredUsername = jwt.getClaimAsString("preferred_username");
+    if (preferredUsername != null && !preferredUsername.isBlank()) {
+      return preferredUsername;
+    }
+
+    return jwt.getSubject();
   }
 
   @SuppressWarnings("unchecked")
