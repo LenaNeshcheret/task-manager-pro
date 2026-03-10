@@ -42,19 +42,34 @@ class KeycloakJwtAuthenticationConverterTest {
   }
 
   @Test
-  void convertFallsBackToSubjectWhenEmailMissing() {
+  void convertUsesPreferredUsernameWhenEmailMissing() {
     Jwt jwt = Jwt.withTokenValue("token")
         .header("alg", "none")
         .subject("subject-user")
+        .claim("preferred_username", "preferred-user")
         .build();
 
     AbstractAuthenticationToken authentication = converter.convert(jwt);
 
-    assertThat(authentication.getName()).isEqualTo("subject-user");
+    assertThat(authentication.getName()).isEqualTo("preferred-user");
   }
 
   @Test
-  void convertFallsBackToSubjectWhenEmailBlank() {
+  void convertUsesPreferredUsernameWhenEmailBlank() {
+    Jwt jwt = Jwt.withTokenValue("token")
+        .header("alg", "none")
+        .subject("subject-user")
+        .claim("email", "   ")
+        .claim("preferred_username", "preferred-user")
+        .build();
+
+    AbstractAuthenticationToken authentication = converter.convert(jwt);
+
+    assertThat(authentication.getName()).isEqualTo("preferred-user");
+  }
+
+  @Test
+  void convertFallsBackToSubjectWhenEmailAndUsernameMissing() {
     Jwt jwt = Jwt.withTokenValue("token")
         .header("alg", "none")
         .subject("subject-user")

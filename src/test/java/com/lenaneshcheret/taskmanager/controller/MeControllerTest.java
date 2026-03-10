@@ -37,7 +37,48 @@ class MeControllerTest {
   }
 
   @Test
-  void meFallsBackToPrincipalNameWhenEmailMissing() {
+  void meUsesPreferredUsernameWhenEmailMissing() {
+    Jwt jwt = Jwt.withTokenValue("token")
+        .header("alg", "none")
+        .subject("subject-user")
+        .claim("preferred_username", "preferred-user")
+        .build();
+
+    JwtAuthenticationToken authentication = new JwtAuthenticationToken(
+        jwt,
+        List.of(new SimpleGrantedAuthority("SCOPE_profile")),
+        "principal-name"
+    );
+
+    MeController.MeResponse response = controller.me(authentication);
+
+    assertThat(response.email()).isEqualTo("preferred-user");
+    assertThat(response.roles()).isEmpty();
+  }
+
+  @Test
+  void meUsesPreferredUsernameWhenEmailBlank() {
+    Jwt jwt = Jwt.withTokenValue("token")
+        .header("alg", "none")
+        .subject("subject-user")
+        .claim("email", "  ")
+        .claim("preferred_username", "preferred-user")
+        .build();
+
+    JwtAuthenticationToken authentication = new JwtAuthenticationToken(
+        jwt,
+        List.of(new SimpleGrantedAuthority("ROLE_USER")),
+        "principal-name"
+    );
+
+    MeController.MeResponse response = controller.me(authentication);
+
+    assertThat(response.email()).isEqualTo("preferred-user");
+    assertThat(response.roles()).containsExactly("ROLE_USER");
+  }
+
+  @Test
+  void meFallsBackToPrincipalNameWhenEmailAndUsernameMissing() {
     Jwt jwt = Jwt.withTokenValue("token")
         .header("alg", "none")
         .subject("subject-user")
@@ -53,25 +94,5 @@ class MeControllerTest {
 
     assertThat(response.email()).isEqualTo("principal-name");
     assertThat(response.roles()).isEmpty();
-  }
-
-  @Test
-  void meFallsBackToPrincipalNameWhenEmailBlank() {
-    Jwt jwt = Jwt.withTokenValue("token")
-        .header("alg", "none")
-        .subject("subject-user")
-        .claim("email", "  ")
-        .build();
-
-    JwtAuthenticationToken authentication = new JwtAuthenticationToken(
-        jwt,
-        List.of(new SimpleGrantedAuthority("ROLE_USER")),
-        "principal-name"
-    );
-
-    MeController.MeResponse response = controller.me(authentication);
-
-    assertThat(response.email()).isEqualTo("principal-name");
-    assertThat(response.roles()).containsExactly("ROLE_USER");
   }
 }
