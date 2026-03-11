@@ -101,7 +101,8 @@ mvn spring-boot:run -Dspring-boot.run.profiles=prod
 ```
 
 ## Endpoints
-- GET `/api/health` (no auth)
+- GET `/api/v1/health` (no auth)
+- GET `/api/health` (no auth, legacy alias)
 - GET `/api/v1/me` (requires Bearer token)
 - Swagger UI: `/swagger-ui.html`
 - Actuator: `/actuator/health`

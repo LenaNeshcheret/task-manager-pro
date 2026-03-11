@@ -103,6 +103,36 @@ class MeEndpointIntegrationTest {
         .body("roles", hasItems("ROLE_USER", "ROLE_ADMIN"));
   }
 
+  @Test
+  void nonVersionedMeRouteReturns404WithValidToken() {
+    String accessToken = obtainAccessToken("user2", "user2pass");
+
+    given()
+        .auth()
+        .oauth2(accessToken)
+        .when()
+        .get("/api/me")
+        .then()
+        .statusCode(404);
+  }
+
+  @Test
+  void healthEndpointWorksOnVersionedAndLegacyPaths() {
+    given()
+        .when()
+        .get("/api/v1/health")
+        .then()
+        .statusCode(200)
+        .body(equalTo("task-manager-pro is running"));
+
+    given()
+        .when()
+        .get("/api/health")
+        .then()
+        .statusCode(200)
+        .body(equalTo("task-manager-pro is running"));
+  }
+
   private static String obtainAccessToken(String username, String password) {
     return given()
         .baseUri(keycloakBaseUrl())
