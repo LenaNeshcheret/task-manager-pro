@@ -68,6 +68,13 @@ public class User {
     }
   }
 
+  public static User fromExternalIdentity(String identifier) {
+    User user = new User();
+    user.email = identifier;
+    user.passwordHash = "EXTERNAL_IDENTITY";
+    return user;
+  }
+
   public void setRoles(Set<UserRole> roles) {
     this.roles = roles == null ? new HashSet<>() : new HashSet<>(roles);
   }

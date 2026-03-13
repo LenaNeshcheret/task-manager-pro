@@ -45,4 +45,11 @@ public class Project {
       createdAt = Instant.now();
     }
   }
+
+  public static Project create(Long ownerId, String name) {
+    Project project = new Project();
+    project.ownerId = ownerId;
+    project.name = name;
+    return project;
+  }
 }
