@@ -104,6 +104,11 @@ mvn spring-boot:run -Dspring-boot.run.profiles=prod
 - GET `/api/v1/health` (no auth)
 - GET `/api/health` (no auth, legacy alias)
 - GET `/api/v1/me` (requires Bearer token)
+- POST `/api/v1/projects` (requires Bearer token)
+- GET `/api/v1/projects` (requires Bearer token)
+- GET `/api/v1/projects/{id}` (requires Bearer token)
+- PATCH `/api/v1/projects/{id}` (requires Bearer token)
+- DELETE `/api/v1/projects/{id}` (requires Bearer token)
 - Swagger UI: `/swagger-ui.html`
 - Actuator: `/actuator/health`
 
