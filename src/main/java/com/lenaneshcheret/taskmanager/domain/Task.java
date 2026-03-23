@@ -58,4 +58,22 @@ public class Task {
   @Version
   @Column(nullable = false)
   private Long version;
+
+  public static Task create(
+      Long projectId,
+      String title,
+      String description,
+      TaskPriority priority,
+      Instant dueAt
+  ) {
+    Task task = new Task();
+    task.projectId = projectId;
+    task.title = title;
+    task.description = description;
+    task.status = TaskStatus.TODO;
+    task.priority = priority;
+    task.dueAt = dueAt;
+    task.completedAt = null;
+    return task;
+  }
 }
