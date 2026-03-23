@@ -16,7 +16,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "reminders")
+@Table(name = "task_reminders")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Reminder {
@@ -42,7 +42,28 @@ public class Reminder {
   @Setter
   private int attempts;
 
+  @Column(name = "last_error", columnDefinition = "TEXT")
+  @Setter
+  private String lastError;
+
+  @Column(name = "sent_at")
+  @Setter
+  private Instant sentAt;
+
   @Version
   @Column(nullable = false)
   private Long version;
+
+  public void markSent(Instant sentAt) {
+    status = ReminderStatus.SENT;
+    lastError = null;
+    this.sentAt = sentAt;
+  }
+
+  public void markFailed(String errorMessage) {
+    attempts += 1;
+    status = ReminderStatus.FAILED;
+    lastError = errorMessage;
+    sentAt = null;
+  }
 }
