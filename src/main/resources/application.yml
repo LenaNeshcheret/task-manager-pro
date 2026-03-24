@@ -30,6 +30,11 @@ app:
   security:
     oauth2:
       client-id: ${APP_SECURITY_OAUTH2_CLIENT_ID:task-manager-api}
+  reminders:
+    due-window: ${APP_REMINDERS_DUE_WINDOW:PT15M}
+    enqueue-fixed-delay-ms: ${APP_REMINDERS_ENQUEUE_FIXED_DELAY_MS:60000}
+    dispatch-fixed-delay-ms: ${APP_REMINDERS_DISPATCH_FIXED_DELAY_MS:5000}
+    dispatch-batch-size: ${APP_REMINDERS_DISPATCH_BATCH_SIZE:100}
 
 management:
   endpoints:
