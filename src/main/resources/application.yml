@@ -30,6 +30,8 @@ app:
   security:
     oauth2:
       client-id: ${APP_SECURITY_OAUTH2_CLIENT_ID:task-manager-api}
+  exports:
+    storage-dir: ${APP_EXPORTS_STORAGE_DIR:target/exports}
   reminders:
     due-window: ${APP_REMINDERS_DUE_WINDOW:PT15M}
     enqueue-fixed-delay-ms: ${APP_REMINDERS_ENQUEUE_FIXED_DELAY_MS:60000}
