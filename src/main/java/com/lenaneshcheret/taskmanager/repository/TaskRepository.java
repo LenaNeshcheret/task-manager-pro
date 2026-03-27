@@ -35,4 +35,6 @@ public interface TaskRepository extends JpaRepository<Task, Long>, JpaSpecificat
       @Param("windowEnd") Instant windowEnd,
       @Param("completedStatus") TaskStatus completedStatus
   );
+
+  List<Task> findAllByProjectIdOrderByIdAsc(Long projectId);
 }

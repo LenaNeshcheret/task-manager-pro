@@ -30,6 +30,10 @@ public class ExportJob {
   @Setter
   private Long userId;
 
+  @Column(name = "project_id")
+  @Setter
+  private Long projectId;
+
   @Enumerated(EnumType.STRING)
   @Column(nullable = false, length = 50)
   @Setter
@@ -51,6 +55,10 @@ public class ExportJob {
   @Setter
   private String filePath;
 
+  @Column(name = "error_message", columnDefinition = "TEXT")
+  @Setter
+  private String errorMessage;
+
   @Version
   @Column(nullable = false)
   private Long version;
@@ -60,5 +68,38 @@ public class ExportJob {
     if (createdAt == null) {
       createdAt = Instant.now();
     }
+  }
+
+  public static ExportJob pending(Long userId, Long projectId, ExportJobType type) {
+    ExportJob exportJob = new ExportJob();
+    exportJob.userId = userId;
+    exportJob.projectId = projectId;
+    exportJob.type = type;
+    exportJob.status = ExportJobStatus.PENDING;
+    exportJob.finishedAt = null;
+    exportJob.filePath = null;
+    exportJob.errorMessage = null;
+    return exportJob;
+  }
+
+  public void markRunning() {
+    status = ExportJobStatus.RUNNING;
+    filePath = null;
+    finishedAt = null;
+    errorMessage = null;
+  }
+
+  public void markDone(String filePath, Instant finishedAt) {
+    status = ExportJobStatus.DONE;
+    this.filePath = filePath;
+    this.finishedAt = finishedAt;
+    errorMessage = null;
+  }
+
+  public void markFailed(String errorMessage, Instant finishedAt) {
+    status = ExportJobStatus.FAILED;
+    filePath = null;
+    this.errorMessage = errorMessage;
+    this.finishedAt = finishedAt;
   }
 }
