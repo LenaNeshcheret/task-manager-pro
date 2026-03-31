@@ -1,30 +1,25 @@
-package com.lenaneshcheret.taskmanager.reminder;
+package com.lenaneshcheret.taskmanager.task;
 
 import static io.restassured.RestAssured.given;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.notNullValue;
 
-import com.lenaneshcheret.taskmanager.testsupport.ReminderPipelineTestHelper;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
 import org.springframework.boot.test.web.server.LocalServerPort;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.springframework.context.annotation.Import;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
@@ -33,9 +28,7 @@ import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.MountableFile;
 
 @SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT)
-@ActiveProfiles("test")
-@Import(ReminderPipelineTestHelper.class)
-class ReminderEndpointIntegrationTest {
+class TaskEndpointIT {
 
   private static final Path REALM_IMPORT_FILE = Path.of("infra", "keycloak", "realm-export.json")
       .toAbsolutePath();
@@ -62,9 +55,6 @@ class ReminderEndpointIntegrationTest {
     Startables.deepStart(Stream.of(POSTGRES, KEYCLOAK)).join();
   }
 
-  @Autowired
-  private ReminderPipelineTestHelper reminderPipelineTestHelper;
-
   @LocalServerPort
   private int port;
 
@@ -78,10 +68,6 @@ class ReminderEndpointIntegrationTest {
         () -> keycloakBaseUrl() + "/realms/task-manager"
     );
     registry.add("app.security.oauth2.client-id", () -> "task-manager-api");
-    registry.add("app.reminders.due-window", () -> "PT30M");
-    registry.add("app.reminders.enqueue-fixed-delay-ms", () -> "3600000");
-    registry.add("app.reminders.dispatch-fixed-delay-ms", () -> "100");
-    registry.add("app.reminders.dispatch-batch-size", () -> "10");
   }
 
   @BeforeEach
@@ -97,68 +83,152 @@ class ReminderEndpointIntegrationTest {
   }
 
   @Test
-  void enqueueIsIdempotentAndAsyncWorkerSendsReminder() throws InterruptedException {
+  void createTaskAndListWithFiltersAndPaging() {
     String token = obtainAccessToken("user1", "user1pass");
     Number projectId = createProject(token, uniqueName("project"));
-    Number taskId = createTask(
-        token,
-        projectId.longValue(),
-        "due soon task",
-        Instant.now().plus(Duration.ofMinutes(5))
-    );
 
-    int created = reminderPipelineTestHelper.enqueueDueSoonReminders();
-    assertEquals(1, created);
+    Instant jan10 = Instant.parse("2030-01-10T10:00:00Z");
+    Instant feb10 = Instant.parse("2030-02-10T10:00:00Z");
 
-    List<Map<String, Object>> reminders = listReminders(token, null);
-    assertEquals(1, reminders.size());
-    assertEquals(taskId.intValue(), ((Number) reminders.get(0).get("taskId")).intValue());
+    createTask(token, projectId.longValue(), "alpha draft", jan10);
+    createTask(token, projectId.longValue(), "beta launch", feb10);
+    Number doneTaskId = createTask(token, projectId.longValue(), "alpha closed", jan10.plusSeconds(7200));
 
-    awaitUntilSent(token);
-
-    int createdAgain = reminderPipelineTestHelper.enqueueDueSoonReminders();
-    assertEquals(0, createdAgain);
-
-    List<Map<String, Object>> remindersAfterSecondRun = listReminders(token, null);
-    assertEquals(1, remindersAfterSecondRun.size());
-    assertEquals("SENT", remindersAfterSecondRun.get(0).get("status"));
-  }
-
-  private void awaitUntilSent(String token) throws InterruptedException {
-    Instant deadline = Instant.now().plusSeconds(10);
-
-    while (Instant.now().isBefore(deadline)) {
-      List<Map<String, Object>> sentReminders = listReminders(token, "SENT");
-      if (sentReminders.size() == 1) {
-        return;
-      }
-      Thread.sleep(200);
-    }
-
-    List<Map<String, Object>> allReminders = listReminders(token, null);
-    assertTrue(
-        allReminders.stream().anyMatch(reminder -> "SENT".equals(reminder.get("status"))),
-        "Expected reminder to transition to SENT within timeout"
-    );
-  }
-
-  private List<Map<String, Object>> listReminders(String token, String status) {
-    var request = given()
+    given()
         .auth()
-        .oauth2(token);
-
-    if (status != null) {
-      request.queryParam("status", status);
-    }
-
-    return request
+        .oauth2(token)
         .when()
-        .get("/api/v1/reminders")
+        .post("/api/v1/tasks/{taskId}/complete", doneTaskId.longValue())
+        .then()
+        .statusCode(200)
+        .body("status", equalTo("DONE"))
+        .body("completedAt", notNullValue());
+
+    given()
+        .auth()
+        .oauth2(token)
+        .queryParam("status", "TODO")
+        .queryParam("dueFrom", "2030-01-01T00:00:00Z")
+        .queryParam("dueTo", "2030-01-31T23:59:59Z")
+        .queryParam("q", "alpha")
+        .queryParam("page", 0)
+        .queryParam("size", 1)
+        .when()
+        .get("/api/v1/projects/{projectId}/tasks", projectId.longValue())
+        .then()
+        .statusCode(200)
+        .body("content.size()", equalTo(1))
+        .body("content[0].title", equalTo("alpha draft"))
+        .body("number", equalTo(0))
+        .body("size", equalTo(1))
+        .body("totalElements", equalTo(1));
+  }
+
+  @Test
+  void updateWithCorrectVersionReturns200() {
+    String token = obtainAccessToken("user1", "user1pass");
+    Number projectId = createProject(token, uniqueName("project"));
+    Number taskId = createTask(token, projectId.longValue(), "versioned task", Instant.parse("2031-01-01T08:00:00Z"));
+
+    Number version = given()
+        .auth()
+        .oauth2(token)
+        .when()
+        .get("/api/v1/projects/{projectId}/tasks", projectId.longValue())
         .then()
         .statusCode(200)
         .extract()
-        .jsonPath()
-        .getList("$");
+        .path("content[0].version");
+
+    given()
+        .auth()
+        .oauth2(token)
+        .contentType(ContentType.JSON)
+        .body(Map.of(
+            "version", version.longValue(),
+            "title", "versioned task updated",
+            "priority", "HIGH"
+        ))
+        .when()
+        .patch("/api/v1/tasks/{taskId}", taskId.longValue())
+        .then()
+        .statusCode(200)
+        .body("id", equalTo(taskId.intValue()))
+        .body("title", equalTo("versioned task updated"))
+        .body("priority", equalTo("HIGH"))
+        .body("version", equalTo(version.intValue() + 1));
+  }
+
+  @Test
+  void updateWithStaleVersionReturns409() {
+    String token = obtainAccessToken("user1", "user1pass");
+    Number projectId = createProject(token, uniqueName("project"));
+
+    Number taskId = createTask(token, projectId.longValue(), "stale task", Instant.parse("2031-03-01T08:00:00Z"));
+
+    given()
+        .auth()
+        .oauth2(token)
+        .contentType(ContentType.JSON)
+        .body(Map.of(
+            "version", 0,
+            "title", "stale task first update"
+        ))
+        .when()
+        .patch("/api/v1/tasks/{taskId}", taskId.longValue())
+        .then()
+        .statusCode(200);
+
+    given()
+        .auth()
+        .oauth2(token)
+        .contentType(ContentType.JSON)
+        .body(Map.of(
+            "version", 0,
+            "title", "stale task second update"
+        ))
+        .when()
+        .patch("/api/v1/tasks/{taskId}", taskId.longValue())
+        .then()
+        .statusCode(409);
+  }
+
+  @Test
+  void userBCannotAccessUserATask() {
+    String userAToken = obtainAccessToken("user1", "user1pass");
+    String userBToken = obtainAccessToken("user2", "user2pass");
+
+    Number projectId = createProject(userAToken, uniqueName("project"));
+    Number taskId = createTask(userAToken, projectId.longValue(), "private task", Instant.parse("2032-01-01T08:00:00Z"));
+
+    given()
+        .auth()
+        .oauth2(userBToken)
+        .contentType(ContentType.JSON)
+        .body(Map.of(
+            "version", 0,
+            "title", "hijack"
+        ))
+        .when()
+        .patch("/api/v1/tasks/{taskId}", taskId.longValue())
+        .then()
+        .statusCode(404);
+
+    given()
+        .auth()
+        .oauth2(userBToken)
+        .when()
+        .post("/api/v1/tasks/{taskId}/complete", taskId.longValue())
+        .then()
+        .statusCode(404);
+
+    given()
+        .auth()
+        .oauth2(userBToken)
+        .when()
+        .delete("/api/v1/tasks/{taskId}", taskId.longValue())
+        .then()
+        .statusCode(404);
   }
 
   private Number createProject(String token, String name) {

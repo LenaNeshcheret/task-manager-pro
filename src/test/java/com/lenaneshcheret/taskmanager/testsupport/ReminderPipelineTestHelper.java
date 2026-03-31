@@ -15,4 +15,8 @@ public class ReminderPipelineTestHelper {
   public int enqueueDueSoonReminders() {
     return reminderService.enqueueDueSoonReminders();
   }
+
+  public void dispatchPendingReminders() {
+    reminderService.dispatchPendingReminders();
+  }
 }

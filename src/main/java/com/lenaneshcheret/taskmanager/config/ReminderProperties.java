@@ -12,6 +12,8 @@ import org.springframework.stereotype.Component;
 @Setter
 public class ReminderProperties {
 
+  private boolean schedulerEnabled = true;
+
   private Duration dueWindow = Duration.ofMinutes(15);
 
   private long enqueueFixedDelayMs = 60_000L;

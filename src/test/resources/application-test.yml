@@ -1,0 +1,8 @@
+spring:
+  datasource:
+    username: task_manager
+    password: task_manager
+
+app:
+  reminders:
+    scheduler-enabled: false

@@ -1,15 +1,13 @@
-package com.lenaneshcheret.taskmanager.project;
+package com.lenaneshcheret.taskmanager.security;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.hasItems;
 
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import java.nio.file.Path;
 import java.time.Duration;
-import java.util.Map;
-import java.util.UUID;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -19,15 +17,15 @@ import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.MountableFile;
 
 @SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT)
-class ProjectEndpointIntegrationTest {
+class MeEndpointIT {
 
   private static final Path REALM_IMPORT_FILE = Path.of("infra", "keycloak", "realm-export.json")
       .toAbsolutePath();
@@ -82,132 +80,57 @@ class ProjectEndpointIntegrationTest {
   }
 
   @Test
-  void userACanCreateListGetUpdateAndDeleteOwnProject() {
-    String userAToken = obtainAccessToken("user1", "user1pass");
-    String initialName = uniqueName("alpha");
-    String updatedName = uniqueName("alpha-updated");
-
-    Number projectId = given()
-        .auth()
-        .oauth2(userAToken)
-        .contentType(ContentType.JSON)
-        .body(Map.of("name", initialName))
+  void meEndpointReturns401WithoutToken() {
+    given()
         .when()
-        .post("/api/v1/projects")
+        .get("/api/v1/me")
         .then()
-        .statusCode(201)
-        .body("name", equalTo(initialName))
-        .extract()
-        .path("id");
+        .statusCode(401);
+  }
+
+  @Test
+  void meEndpointReturnsEmailAndRolesWithValidToken() {
+    String accessToken = obtainAccessToken("user2", "user2pass");
 
     given()
         .auth()
-        .oauth2(userAToken)
+        .oauth2(accessToken)
         .when()
-        .get("/api/v1/projects")
+        .get("/api/v1/me")
         .then()
         .statusCode(200)
-        .body("name", hasItem(initialName));
+        .body("email", equalTo("user2@example.com"))
+        .body("roles", hasItems("ROLE_USER", "ROLE_ADMIN"));
+  }
+
+  @Test
+  void nonVersionedMeRouteReturns404WithValidToken() {
+    String accessToken = obtainAccessToken("user2", "user2pass");
 
     given()
         .auth()
-        .oauth2(userAToken)
+        .oauth2(accessToken)
         .when()
-        .get("/api/v1/projects/{id}", projectId.longValue())
-        .then()
-        .statusCode(200)
-        .body("id", equalTo(projectId.intValue()))
-        .body("name", equalTo(initialName));
-
-    given()
-        .auth()
-        .oauth2(userAToken)
-        .contentType(ContentType.JSON)
-        .body(Map.of("name", updatedName))
-        .when()
-        .patch("/api/v1/projects/{id}", projectId.longValue())
-        .then()
-        .statusCode(200)
-        .body("id", equalTo(projectId.intValue()))
-        .body("name", equalTo(updatedName));
-
-    given()
-        .auth()
-        .oauth2(userAToken)
-        .when()
-        .delete("/api/v1/projects/{id}", projectId.longValue())
-        .then()
-        .statusCode(204);
-
-    given()
-        .auth()
-        .oauth2(userAToken)
-        .when()
-        .get("/api/v1/projects/{id}", projectId.longValue())
+        .get("/api/me")
         .then()
         .statusCode(404);
   }
 
   @Test
-  void userBCannotAccessUserAProject() {
-    String userAToken = obtainAccessToken("user1", "user1pass");
-    String userBToken = obtainAccessToken("user2", "user2pass");
-    Number projectId = createProject(userAToken, uniqueName("shared"));
+  void healthEndpointWorksOnVersionedAndLegacyPaths() {
+    given()
+        .when()
+        .get("/api/v1/health")
+        .then()
+        .statusCode(200)
+        .body(equalTo("task-manager-pro is running"));
 
     given()
-        .auth()
-        .oauth2(userBToken)
         .when()
-        .get("/api/v1/projects/{id}", projectId.longValue())
+        .get("/api/health")
         .then()
-        .statusCode(404);
-
-    given()
-        .auth()
-        .oauth2(userBToken)
-        .contentType(ContentType.JSON)
-        .body(Map.of("name", uniqueName("attempt-update")))
-        .when()
-        .patch("/api/v1/projects/{id}", projectId.longValue())
-        .then()
-        .statusCode(404);
-
-    given()
-        .auth()
-        .oauth2(userBToken)
-        .when()
-        .delete("/api/v1/projects/{id}", projectId.longValue())
-        .then()
-        .statusCode(404);
-  }
-
-  @Test
-  void createProjectRejectsBlankName() {
-    String userAToken = obtainAccessToken("user1", "user1pass");
-
-    given()
-        .auth()
-        .oauth2(userAToken)
-        .contentType(ContentType.JSON)
-        .body(Map.of("name", "   "))
-        .when()
-        .post("/api/v1/projects")
-        .then()
-        .statusCode(400);
-  }
-
-  private Number createProject(String token, String name) {
-    return given()
-        .auth()
-        .oauth2(token)
-        .contentType(ContentType.JSON)
-        .body(Map.of("name", name))
-        .when()
-        .post("/api/v1/projects")
-        .then()
-        .statusCode(201)
-        .extract()
-        .path("id");
+        .statusCode(200)
+        .body(equalTo("task-manager-pro is running"));
   }
 
   private static String obtainAccessToken(String username, String password) {
@@ -224,10 +147,6 @@ class ProjectEndpointIntegrationTest {
         .statusCode(200)
         .extract()
         .path("access_token");
-  }
-
-  private static String uniqueName(String prefix) {
-    return "project-" + prefix + "-" + UUID.randomUUID().toString().substring(0, 8);
   }
 
   private static String keycloakBaseUrl() {

@@ -29,7 +29,7 @@ import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.MountableFile;
 
 @SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT)
-class ExportEndpointIntegrationTest {
+class ExportEndpointIT {
 
   private static final Path REALM_IMPORT_FILE = Path.of("infra", "keycloak", "realm-export.json")
       .toAbsolutePath();
