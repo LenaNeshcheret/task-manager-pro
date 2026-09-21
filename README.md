@@ -90,6 +90,57 @@ Without a bearer token, `/api/v1/me` returns `401 Unauthorized`.
 2) Run the UI on `http://localhost:3000` or `http://localhost:5173` (both are preconfigured redirect URIs).
 3) Start login from UI and sign in with one of the test users above.
 
+## Frontend UI
+Minimal React UI lives in `frontend/` and is built with Vite + React (JavaScript).
+
+### Run the UI locally
+1) Start backend dependencies and the Spring Boot app:
+```bash
+docker compose up -d postgres keycloak
+mvn spring-boot:run
+```
+
+2) Start the frontend:
+```bash
+cd frontend
+cp .env.example .env.local
+npm install
+npm run dev
+```
+
+3) Open:
+```text
+http://localhost:5173
+```
+
+4) Click `Login with Keycloak` and sign in with:
+```text
+user1 / user1pass
+```
+or
+```text
+user2 / user2pass
+```
+
+5) After login, the UI calls `GET /api/v1/me` and displays:
+- current username
+- backend identity value returned by the API
+- granted roles
+
+### Frontend env vars
+- `VITE_API_BASE_URL`
+  - Default: `/api`
+  - Dev-friendly setup: keep `/api` and let Vite proxy to the backend.
+- `VITE_API_PROXY_TARGET`
+  - Default example: `http://localhost:8080`
+  - Used only by the Vite dev server.
+- `VITE_KEYCLOAK_URL`
+  - Default example: `http://localhost:8081`
+- `VITE_KEYCLOAK_REALM`
+  - Default: `task-manager`
+- `VITE_KEYCLOAK_CLIENT_ID`
+  - Default: `task-manager-api`
+
 ## Profiles
 - `dev` (default): uses shared PostgreSQL settings from `application.yml` and `.env`
 - `prod`: same shared PostgreSQL settings, with SQL formatting disabled

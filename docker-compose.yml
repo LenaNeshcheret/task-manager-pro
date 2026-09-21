@@ -44,7 +44,7 @@ services:
     image: quay.io/keycloak/keycloak:24.0
     container_name: task-manager-keycloak
     restart: unless-stopped
-    command: start-dev --import-realm --hostname=host.docker.internal --hostname-port=8081 --http-enabled=true --hostname-strict=false
+    command: start-dev --import-realm --hostname=localhost --hostname-port=8081 --http-enabled=true --hostname-strict=false
     environment:
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
